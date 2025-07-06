@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <locale.h>
+#include <time.h>
 
 #define MAX_LINHAS 50
 #define MAX_COLUNAS 50
@@ -21,6 +23,14 @@ typedef struct {
     char direcao;
 } Movimento;
 
+typedef struct NoArvore {
+    Configuracao config;
+    Movimento mov;
+    struct NoArvore *pai;
+    struct NoArvore **filhos;
+    int n_filhos;
+} NoArvore;
+
 Configuracao configuracoes[MAX_CONFIGURACOES];
 Movimento movimentos[MAX_MOVIMENTOS];
 char historico_tabuleiros[MAX_HISTORICO][MAX_LINHAS][MAX_COLUNAS];
@@ -28,13 +38,22 @@ int total_configuracoes = 0;
 int total_movimentos = 0;
 int total_historico = 0;
 
+NoArvore* define_noarvore(NoArvore *pai, Configuracao *config, Movimento mov) {
+    NoArvore *novo = (NoArvore*)malloc(sizeof(NoArvore));
+    novo->config = *config;
+    novo->mov = mov;
+    novo->pai = pai;
+    novo->filhos = NULL;
+    novo->n_filhos = 0;
+    return novo;
+}
+
 void carregar_configuracoes(const char *nome_arquivo) {
     FILE *arquivo = fopen(nome_arquivo, "r");
     if (!arquivo) {
         printf("Erro ao abrir o arquivo %s\n", nome_arquivo);
         exit(1);
     }
-
     char linha[100];
     while (fgets(linha, sizeof(linha), arquivo)) {
         if (total_configuracoes >= MAX_CONFIGURACOES) break;
@@ -60,23 +79,15 @@ void carregar_configuracoes(const char *nome_arquivo) {
         }
         config->colunas = max_colunas;
     }
-
     fclose(arquivo);
 }
 
 void imprimir_tabuleiro_enunciado(char tabuleiro[MAX_LINHAS][MAX_COLUNAS], int linhas, int colunas) {
-    int tem_linha_interna = 0;
+    printf("   ");
+    for (int j = 0; j < colunas; j++) printf("%d ", j+1);
+    printf("\n");
     for (int i = 0; i < linhas; i++) {
-        if (tabuleiro[i][0] != '*') { tem_linha_interna = 1; break; }
-    }
-    if (tem_linha_interna) {
-        printf("  ");
-        for (int j = 0; j < colunas; j++) printf("%d ", j+1);
-        printf("\n");
-    }
-    for (int i = 0; i < linhas; i++) {
-        if (tabuleiro[i][0] == '*') printf("  ");
-        else printf("%d ", i+1);
+        printf("%2d ", i+1);
         for (int j = 0; j < colunas; j++) printf("%c ", tabuleiro[i][j]);
         printf("\n");
     }
@@ -100,7 +111,7 @@ void marcar_bloco_dfs(char tabuleiro[MAX_LINHAS][MAX_COLUNAS], int linhas, int c
     marcar_bloco_dfs(tabuleiro, linhas, colunas, x, y-1, letra, visitado);
 }
 
-int mover_bloco_simples(char tabuleiro[MAX_LINHAS][MAX_COLUNAS], int linhas, int colunas, int x, int y, char direcao) {
+int mover_bloco_simples(char tabuleiro[MAX_LINHAS][MAX_COLUNAS], int linhas, int colunas, int x, int y, char direcao, int simulacao) {
     char letra = tabuleiro[x][y];
     if (letra == ' ' || letra == '*') return 0;
     int dx = 0, dy = 0;
@@ -113,9 +124,15 @@ int mover_bloco_simples(char tabuleiro[MAX_LINHAS][MAX_COLUNAS], int linhas, int
     marcar_bloco_dfs(tabuleiro, linhas, colunas, x, y, letra, visitado);
     for (int i = 0; i < linhas; i++) for (int j = 0; j < colunas; j++) if (visitado[i][j]) {
         int ni = i + dx, nj = j + dy;
+        if (letra != 'D' && (ni == 0 || ni == linhas-1 || nj == 0 || nj == colunas-1)) return 0;
         if (ni < 0 || ni >= linhas || nj < 0 || nj >= colunas) {
-            if (letra == 'D') { printf("Parabéns! Você venceu!\n"); exit(0); }
-            else return 0;
+            if (letra == 'D') {
+                if (simulacao) return 2;
+                printf("Parabéns! Você venceu!\n");
+                exit(0);
+            } else {
+                return 0;
+            }
         }
         if (tabuleiro[ni][nj] != ' ' && !visitado[ni][nj]) return 0;
     }
@@ -129,7 +146,18 @@ int mover_bloco_simples(char tabuleiro[MAX_LINHAS][MAX_COLUNAS], int linhas, int
     return 1;
 }
 
+int tab_iguais(char t1[MAX_LINHAS][MAX_COLUNAS], char t2[MAX_LINHAS][MAX_COLUNAS], int l, int c) {
+    for (int i = 0; i < l; i++)
+        if (strncmp(t1[i], t2[i], c) != 0) return 0;
+    return 1;
+}
+
+#define MAX_VISITADOS 10000
+Configuracao visitados[MAX_VISITADOS];
+int n_visitados = 0;
+
 int main(int argc, char *argv[]) {
+    setlocale(LC_ALL, "pt_BR.UTF-8");
     const char *nome_arquivo = "haikori.txt";
     if (argc > 2 && strcmp(argv[1], "-f") == 0) nome_arquivo = argv[2];
     carregar_configuracoes(nome_arquivo);
@@ -144,6 +172,8 @@ int main(int argc, char *argv[]) {
             printf("c <n>: Escolher configuração\n");
             printf("m <linha> <coluna> <direção>: Movimentar peça\n");
             printf("p: Imprimir movimentos realizados\n");
+            printf("s: Gerar e explorar todas as configurações possíveis a partir da atual\n");
+            printf("R: Resolver automaticamente o quebra-cabeça (busca automática)\n");
             printf("q: Sair\n");
         } else if (comando == 'l') {
             for (int i = 0; i < total_configuracoes; i++) {
@@ -173,8 +203,8 @@ int main(int argc, char *argv[]) {
             scanf("%d %d %c", &linha, &coluna, &direcao);
             if (config_atual == -1) printf("Nenhuma configuração carregada!\n");
             else {
-                int x = linha - 1, y = coluna - 1; // Corrigido para indexação iniciando em 0
-                if (mover_bloco_simples(configuracoes[config_atual].tabuleiro, configuracoes[config_atual].linhas, configuracoes[config_atual].colunas, x, y, direcao)) {
+                int x = linha - 1, y = coluna - 1;
+                if (mover_bloco_simples(configuracoes[config_atual].tabuleiro, configuracoes[config_atual].linhas, configuracoes[config_atual].colunas, x, y, direcao, 0)) {
                     if (total_movimentos < MAX_MOVIMENTOS) {
                         movimentos[total_movimentos].linha = linha;
                         movimentos[total_movimentos].coluna = coluna;
@@ -199,6 +229,127 @@ int main(int argc, char *argv[]) {
         } else if (comando == 'p') {
             for (int h = 0; h < total_historico; h++)
                 imprimir_tabuleiro_enunciado(historico_tabuleiros[h], configuracoes[config_atual].linhas, configuracoes[config_atual].colunas);
+        } else if (comando == 's') {
+            if (config_atual == -1) {
+                printf("Nenhuma configuração carregada!\n");
+            } else {
+                NoArvore *raiz = define_noarvore(NULL, &configuracoes[config_atual], (Movimento){0,0,' '});
+                int n_filhos = 0;
+                NoArvore **filhos = (NoArvore**)malloc(MAX_LINHAS * MAX_COLUNAS * 4 * sizeof(NoArvore*));
+                for (int i = 0; i < configuracoes[config_atual].linhas; i++) {
+                    for (int j = 0; j < configuracoes[config_atual].colunas; j++) {
+                        char letra = configuracoes[config_atual].tabuleiro[i][j];
+                        if (letra == ' ' || letra == '*') continue;
+                        char dirs[4] = {'T','B','E','D'};
+                        for (int d = 0; d < 4; d++) {
+                            Configuracao nova = configuracoes[config_atual];
+                            int res = mover_bloco_simples(nova.tabuleiro, nova.linhas, nova.colunas, i, j, dirs[d], 1);
+                            if (res == 1) {
+                                Movimento mov = {i+1, j+1, dirs[d]};
+                                filhos[n_filhos] = define_noarvore(raiz, &nova, mov);
+                                n_filhos++;
+                            }
+                        }
+                    }
+                }
+                if (n_filhos == 0) {
+                    printf("Nenhum movimento possível a partir da configuração atual.\n");
+                } else {
+                    printf("Configurações possíveis:\n");
+                    for (int f = 0; f < n_filhos; f++) {
+                        printf("%d) Movimento: (%d,%d) %c\n", f+1, filhos[f]->mov.linha, filhos[f]->mov.coluna, filhos[f]->mov.direcao);
+                        imprimir_tabuleiro_enunciado(filhos[f]->config.tabuleiro, filhos[f]->config.linhas, filhos[f]->config.colunas);
+                    }
+                    printf("Escolha uma configuração (1-%d) para expandir ou 0 para cancelar: ", n_filhos);
+                    int escolha;
+                    scanf("%d", &escolha);
+                    if (escolha >= 1 && escolha <= n_filhos) {
+                        configuracoes[config_atual] = filhos[escolha-1]->config;
+                        salvar_tabuleiro_historico(&configuracoes[config_atual]);
+                        printf("Configuração escolhida carregada.\n");
+                        imprimir_tabuleiro_enunciado(configuracoes[config_atual].tabuleiro, configuracoes[config_atual].linhas, configuracoes[config_atual].colunas);
+                    } else {
+                        printf("Operação cancelada.\n");
+                    }
+                }
+                for (int f = 0; f < n_filhos; f++) free(filhos[f]);
+                free(filhos);
+                free(raiz);
+            }
+        } else if (comando == 'R') {
+            if (config_atual == -1) {
+                printf("Nenhuma configuração carregada!\n");
+            } else {
+                clock_t inicio = clock();
+                typedef struct NoFila {
+                    NoArvore *no;
+                    struct NoFila *prox;
+                } NoFila;
+                NoFila *ini = NULL, *fim = NULL;
+                NoArvore *raiz = define_noarvore(NULL, &configuracoes[config_atual], (Movimento){0,0,' '});
+                ini = fim = (NoFila*)malloc(sizeof(NoFila));
+                ini->no = raiz; ini->prox = NULL;
+                int achou = 0;
+                NoArvore *sol = NULL;
+                while (ini && !achou) {
+                    NoArvore *atual = ini->no;
+                    if (n_visitados < MAX_VISITADOS) visitados[n_visitados++] = atual->config;
+                    for (int i = 0; i < atual->config.linhas; i++) {
+                        for (int j = 0; j < atual->config.colunas; j++) {
+                            char letra = atual->config.tabuleiro[i][j];
+                            if (letra == ' ' || letra == '*') continue;
+                            char dirs[4] = {'T','B','E','D'};
+                            for (int d = 0; d < 4; d++) {
+                                Configuracao nova = atual->config;
+                                int res = mover_bloco_simples(nova.tabuleiro, nova.linhas, nova.colunas, i, j, dirs[d], 1);
+                                if (res == 1) {
+                                    int repetido = 0;
+                                    for (int v = 0; v < n_visitados; v++) {
+                                        if (tab_iguais(nova.tabuleiro, visitados[v].tabuleiro, nova.linhas, nova.colunas)) { repetido = 1; break; }
+                                    }
+                                    if (repetido) continue;
+                                    Movimento mov = {i+1, j+1, dirs[d]};
+                                    NoArvore *filho = define_noarvore(atual, &nova, mov);
+                                    int venceu = 0;
+                                    for (int x = 0; x < nova.linhas; x++) for (int y = 0; y < nova.colunas; y++)
+                                        if (nova.tabuleiro[x][y] == 'D' && (x == 0 || x == nova.linhas-1 || y == 0 || y == nova.colunas-1)) venceu = 1;
+                                    if (venceu) {
+                                        achou = 1; sol = filho; break;
+                                    }
+                                    NoFila *novo = (NoFila*)malloc(sizeof(NoFila));
+                                    novo->no = filho; novo->prox = NULL;
+                                    if (fim) {
+                                        fim->prox = novo;
+                                    }
+                                    fim = novo;
+                                    if (!ini) ini = novo;
+                                }
+                            }
+                            if (achou) break;
+                        }
+                        if (achou) break;
+                    }
+                    NoFila *tmp = ini;
+                    ini = ini->prox;
+                    free(tmp);
+                }
+                clock_t fim_tempo = clock();
+                double tempo_gasto = (double)(fim_tempo - inicio) / CLOCKS_PER_SEC;
+                if (achou && sol) {
+                    NoArvore *caminho[1000];
+                    int tam = 0;
+                    while (sol) { caminho[tam++] = sol; sol = sol->pai; }
+                    printf("Caminho da solução (do início ao fim):\n");
+                    for (int i = tam-1; i >= 0; i--) {
+                        if (i != tam-1) printf("Movimento: (%d,%d) %c\n", caminho[i]->mov.linha, caminho[i]->mov.coluna, caminho[i]->mov.direcao);
+                        imprimir_tabuleiro_enunciado(caminho[i]->config.tabuleiro, caminho[i]->config.linhas, caminho[i]->config.colunas);
+                    }
+                    printf("Tempo para encontrar a solução: %.4f segundos\n", tempo_gasto);
+                } else {
+                    printf("Não foi encontrada solução a partir da configuração atual.\n");
+                    printf("Tempo de busca: %.4f segundos\n", tempo_gasto);
+                }
+            }
         } else if (comando == 'q') break;
         else {
             printf("Comando inválido!\n");

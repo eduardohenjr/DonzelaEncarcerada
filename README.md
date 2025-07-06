@@ -25,9 +25,12 @@ Mova os blocos do tabuleiro para libertar a donzela (bloco 'D'), levando-a até 
    - `l` : Listar configurações disponíveis
    - `c <n>` : Carregar configuração número n
    - `m <linha> <coluna> <direção>` : Mover bloco na posição (linha, coluna) na direção desejada
-     - Direções: `T` (cima), `B` (baixo), `E` (esquerda), `D` (direita)
+     - Direções permitidas: `T` (cima), `B` (baixo), `E` (esquerda), `D` (direita)
+     - Não é permitido mover blocos na diagonal.
      - Exemplo: `m 1 1 D` (move o bloco da linha 1, coluna 1 para a direita)
    - `p` : Imprimir histórico de movimentos/tabuleiros
+   - `s` : Gerar e explorar todas as configurações possíveis a partir da atual
+   - `R` : Resolver automaticamente o quebra-cabeça (busca automática)
    - `q` : Sair do jogo
    - `h` : Ajuda
 
@@ -53,6 +56,7 @@ Fase 2
 ## Regras
 - O tabuleiro é indexado a partir de (1,1) para o usuário, conforme mostrado na impressão do jogo.
 - Só é possível mover blocos inteiros (blocos conectados de mesma letra).
+- Os blocos só podem ser movidos para cima, baixo, esquerda ou direita (nunca na diagonal).
 - O objetivo é mover o bloco 'D' para fora do tabuleiro.
 - Se um movimento não for possível, o programa exibirá: `Impossível movimentar peça em <linha>,<coluna> <direção>`, detalhando a posição e direção.
 
