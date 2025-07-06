@@ -51,9 +51,10 @@ Fase 2
 ```
 
 ## Regras
-- O tabuleiro é indexado a partir de (0,0) no canto superior esquerdo.
+- O tabuleiro é indexado a partir de (1,1) para o usuário, conforme mostrado na impressão do jogo.
 - Só é possível mover blocos inteiros (blocos conectados de mesma letra).
 - O objetivo é mover o bloco 'D' para fora do tabuleiro.
+- Se um movimento não for possível, o programa exibirá: `Impossível movimentar peça em <linha>,<coluna> <direção>`, detalhando a posição e direção.
 
 ## Créditos
 Desenvolvido por Eduardo Henrique Marques Gomes Junior.

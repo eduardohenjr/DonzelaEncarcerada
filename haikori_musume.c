@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
             scanf("%d %d %c", &linha, &coluna, &direcao);
             if (config_atual == -1) printf("Nenhuma configuração carregada!\n");
             else {
-                int x = linha, y = coluna;
+                int x = linha - 1, y = coluna - 1; // Corrigido para indexação iniciando em 0
                 if (mover_bloco_simples(configuracoes[config_atual].tabuleiro, configuracoes[config_atual].linhas, configuracoes[config_atual].colunas, x, y, direcao)) {
                     if (total_movimentos < MAX_MOVIMENTOS) {
                         movimentos[total_movimentos].linha = linha;
@@ -184,7 +184,17 @@ int main(int argc, char *argv[]) {
                     salvar_tabuleiro_historico(&configuracoes[config_atual]);
                     printf("Movimento %d\n", total_movimentos);
                     imprimir_tabuleiro_enunciado(configuracoes[config_atual].tabuleiro, configuracoes[config_atual].linhas, configuracoes[config_atual].colunas);
-                } else printf("Erro ao executar movimento.\n");
+                } else {
+                    char *dir_str;
+                    switch (direcao) {
+                        case 'T': dir_str = "para cima"; break;
+                        case 'B': dir_str = "para baixo"; break;
+                        case 'E': dir_str = "para a esquerda"; break;
+                        case 'D': dir_str = "para a direita"; break;
+                        default: dir_str = "em direção desconhecida"; break;
+                    }
+                    printf("Impossível movimentar peça em %d,%d %s.\n", linha, coluna, dir_str);
+                }
             }
         } else if (comando == 'p') {
             for (int h = 0; h < total_historico; h++)
