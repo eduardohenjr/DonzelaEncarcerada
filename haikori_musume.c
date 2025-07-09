@@ -143,6 +143,17 @@ int mover_bloco_simples(char tabuleiro[MAX_LINHAS][MAX_COLUNAS], int linhas, int
         for (int i = 0; i < linhas; i++) for (int j = 0; j < colunas; j++)
             if (visitado[i][j]) { tabuleiro[i+dx][j+dy] = letra; tabuleiro[i][j] = ' '; }
     }
+    if (letra == 'D' && !simulacao) {
+        for (int i = 0; i < linhas; i++) {
+            for (int j = 0; j < colunas; j++) {
+                if (tabuleiro[i][j] == 'D' && (i == 0 || i == linhas-1 || j == 0 || j == colunas-1)) {
+                    imprimir_tabuleiro_enunciado(tabuleiro, linhas, colunas);
+                    printf("Parabéns! Você venceu!\n");
+                    exit(0);
+                }
+            }
+        }
+    }
     return 1;
 }
 

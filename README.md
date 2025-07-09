@@ -4,7 +4,7 @@ Jogo de lógica inspirado no clássico "Hakoiri Musume" (Donzela Encarcerada), i
 
 ## Objetivo
 
-Mova os blocos do tabuleiro para libertar a donzela (bloco 'D'), levando-a até a saída do tabuleiro.
+Mova os blocos do tabuleiro para libertar a donzela (bloco 'D'), levando-a até qualquer borda do tabuleiro.
 
 ## Como jogar
 
@@ -57,7 +57,7 @@ Fase 2
 - O tabuleiro é indexado a partir de (1,1) para o usuário, conforme mostrado na impressão do jogo.
 - Só é possível mover blocos inteiros (blocos conectados de mesma letra).
 - Os blocos só podem ser movidos para cima, baixo, esquerda ou direita (nunca na diagonal).
-- O objetivo é mover o bloco 'D' para fora do tabuleiro.
+- O objetivo é mover o bloco 'D' até qualquer borda do tabuleiro.
 - Se um movimento não for possível, o programa exibirá: `Impossível movimentar peça em <linha>,<coluna> <direção>`, detalhando a posição e direção.
 
 ## Créditos
